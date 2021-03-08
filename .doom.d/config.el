@@ -1,0 +1,189 @@
+;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
+
+;; Place your private configuration here! Remember, you do not need to run 'doom
+;; sync' after modifying this file!
+
+
+;; Some functionality uses this to identify you, e.g. GPG configuration, email
+;; clients, file templates and snippets.
+(setq user-full-name "svejk")
+
+(setq doom-font (font-spec :family "JuliaMono" :size 20)
+      doom-variable-pitch-font (font-spec :family "JuliaMono")
+      doom-serif-font (font-spec :family "JuliaMono"))
+
+(when (file-exists-p "~/.doom.d/banners")
+  (setq +doom-dashboard-banner-padding '(0 . 2)
+        +doom-dashboard-banner-file "deepfield-window.png"
+        +doom-dashboard-banner-dir "~/.doom.d/banners"))
+
+(setq display-line-numbers-type nil)
+
+;; Thin grey line separating windows
+(set-face-background 'vertical-border "grey")
+(set-face-foreground 'vertical-border (face-background 'vertical-border))
+
+
+(use-package! doom-themes
+  :config
+  ;; Global settings (defaults)
+  (setq doom-themes-enable-bold t      ; if nil, bold is universally disabled
+        doom-themes-enable-italic t)   ; if nil, italics is universally disabled
+  ;;(load-theme 'doom-outrun-electric t)
+  ;;(load-theme 'doom-sourcerer t)
+  ;;(load-theme 'weyland-yutai t)
+  (load-theme 'doom-acario-dark t)
+  ;; Enable flashing mode-line on errors
+  (doom-themes-visual-bell-config)
+
+  ;; Corrects (and improves) org-mode's native fontification.
+  (doom-themes-org-config))
+
+
+;; Waiting on https://github.com/hlissner/emacs-doom-themes/issues/252
+;; Currently, some things like italics and some links in org fail to render correctly.
+;; (use-package! poet-theme
+;;   :config
+;;   (load-theme 'poet))
+(use-package! org-roam
+  :commands (org-roam-insert org-roam-find-file org-roam-switch-to-buffer org-roam)
+  :hook (org-mode . org-roam-mode)
+  :hook (org-journal-mode . org-roam-mode)
+  :custom-face
+  (org-roam-link ((t (:inherit org-link))))
+  :init
+  (map! :leader
+        :prefix "n"
+        :desc "org-roam" "l" #'org-roam
+        :desc "org-roam-insert" "i" #'org-roam-insert
+        :desc "org-roam-switch-to-buffer" "b" #'org-roam-switch-to-buffer
+        :desc "org-roam-find-file" "f" #'org-roam-find-file
+        :desc "org-roam-show-graph" "g" #'org-roam-show-graph
+        :desc "org-roam-capture" "c" #'org-roam-capture)
+  (setq org-roam-db-location "/home/kdb/Documents/github/org-roam/org-roam.db"
+        org-roam-graph-exclude-matcher '("todo" "private"))
+  :config
+  (org-roam-mode +1)
+  (require 'org-roam-protocol)
+  )
+
+
+;; If you use `org' and don't want your org files in the default location below,
+;; change `org-directory'. It must be set before org loads!
+(setq org-roam-directory "~/Documents/github/org-roam/")
+
+;; This determines the style of line numbers in effect. If set to `nil', line
+;; numbers are disabled. For relative line numbers, set this to `relative'.
+(setq display-line-numbers-type t)
+(with-eval-after-load 'ox
+  (require 'ox-hugo))
+
+
+(add-hook 'after-init-hook 'org-roam-mode)
+
+(use-package! org-ref
+  :config
+  (setq org-ref-default-bibliography '("/home/kdb/Documents/github/org-roam/refs.bib"))
+  (setq bibtex-completion-bibliography "/home/kdb/org-roam/Documents/github/refs.bib")
+  )
+
+
+(defun org-ref-get-bibtex-entry-md (key)
+  "Return a md string for the bibliography entry corresponding to KEY."
+  ;; We create an anchor to the key that we can jump to, and provide a jump back
+  ;; link with the md5 of the key.
+  (let ((org-ref-formatted-citation-backend "md"))
+    (format "<a id=\"%s\"></a>%s [↩](#%s)"
+	    key
+	    (org-ref-format-entry key)
+	    (md5 key))))
+
+(add-to-list 'org-ref-formatted-citation-formats
+	     '("md"
+	 ("article" . "${author}, *${title}*, ${journal}, *${volume}(${number})*, ${pages} (${year}). ${doi}")
+	 ("inproceedings" . "${author}, *${title}*, In ${editor}, ${booktitle} (pp. ${pages}) (${year}). ${address}: ${publisher}.")
+	 ("book" . "${author}, *${title}* (${year}), ${address}: ${publisher}.")
+	 ("phdthesis" . "${author}, *${title}* (Doctoral dissertation) (${year}). ${school}, ${address}.")
+	 ("inbook" . "${author}, *${title}*, In ${editor} (Eds.), ${booktitle} (pp. ${pages}) (${year}). ${address}: ${publisher}.")
+	 ("incollection" . "${author}, *${title}*, In ${editor} (Eds.), ${booktitle} (pp. ${pages}) (${year}). ${address}: ${publisher}.")
+	 ("proceedings" . "${editor} (Eds.), _${booktitle}_ (${year}). ${address}: ${publisher}.")
+	 ("unpublished" . "${author}, *${title}* (${year}). Unpublished manuscript.")
+   ("online" . "${author}, *${title}* (${url}).")
+	 (nil . "${author}, *${title}* (${year}).")))
+
+
+(require 'calibredb)
+(require 'org-tempo)
+
+
+(use-package! calibredb
+  :defer t
+  :init
+  (autoload 'calibredb "calibredb")
+  (map! :leader (:desc "calibredb" :n "ac" #'calibredb))
+
+  :config
+  ;; (setq sql-sqlite-program "/usr/bin/sqlite3")
+  (setq calibredb-root-dir "~/Calibre Library")
+  (setq calibredb-db-dir (expand-file-name "metadata.db" calibredb-root-dir))
+  (setq calibredb-library-alist `((,calibredb-root-dir)
+                                  ("~/Dropbox")))
+  ;; (use-package! org-ref
+  ;;   :after-call calibredb
+  ;;   :config
+  ;;   (setq calibredb-ref-default-bibliography "~/Desktop/catalog.bib")
+  ;;   (add-to-list 'org-ref-default-bibliography calibredb-ref-default-bibliography)
+  ;;   (setq org-ref-pdf-directory "~/OneDrive/Doc/Calibre/")
+  ;;   (setq org-ref-bibliography-notes "~/OneDrive/Org/Writing/references.org")
+  ;;   (setq org-ref-get-pdf-filename-function 'org-ref-get-mendeley-filename))
+  (map! :map calibredb-search-mode-map
+        :n "q"   'calibredb-search-quit
+        :n "n"   'calibredb-virtual-library-next
+        :n "N"   'calibredb-library-next
+        :n "p"   'calibredb-virtual-library-previous
+        :n "P"   'calibredb-library-previous
+        :n "l"   'calibredb-virtual-library-list
+        :n "o"   'calibredb-find-file
+        :n "O"   'calibredb-find-file-other-frame
+        :n "V"   'calibredb-open-file-with-default-tool
+        :n "v"   'calibredb-view
+        :n "d"   'calibredb-remove
+        :n "D"   'calibredb-remove-marked-items
+        :n "m"   'calibredb-mark-and-forward
+        :n "s"   'calibredb-set-metadata-dispatch
+        :n "e"   'calibredb-export-dispatch
+        ;; :n "b"   'calibredb-catalog-bib-dispatch
+        :n "a"   'calibredb-add
+        :n "."   'calibredb-open-dired
+        :n ","   'calibredb-quick-look
+        :n "y"   'calibredb-yank-dispatch
+        :n "u"   'calibredb-unmark-and-forward
+        :n "DEL" 'calibredb-unmark-and-backward
+        :n "s"   'calibredb-set-metadata-dispatch
+        :n "?"   'calibredb-dispatch
+        :n "/"   'calibredb-search-live-filter
+        :n "j" 'calibredb-next-entry
+        :n "k" 'calibredb-previous-entry
+        :n "M-f"   'calibredb-toggle-favorite-at-point
+        :n "M-x"   'calibredb-toggle-archive-at-point
+        :n "M-h"   'calibredb-toggle-highlight-at-point
+        :n "M-n"   'calibredb-show-next-entry
+        :n "M-p"   'calibredb-show-previous-entry
+        :n "R"   'calibredb-search-clear-filter
+        :n "r"   'calibredb-search-refresh-and-clear-filter
+        :n "<backtab>"   'calibredb-toggle-view
+        :n "<tab>"   'calibredb-toggle-view-at-point
+        :n "TAB"   'calibredb-toggle-view-at-point
+        :n "RET" 'calibredb-find-file)
+
+  (map! :map calibredb-show-mode-map
+        :nie "q" 'calibredb-entry-quit
+        :nie "?" 'calibredb-entry-dispatch
+        :nie "RET" 'calibredb-search-ret)
+
+
+  (add-hook 'calibredb-search-mode-hook #'doom-mark-buffer-as-real-h)
+  (add-hook 'calibredb-show-mode-hook #'doom-mark-buffer-as-real-h)
+
+
+  )
